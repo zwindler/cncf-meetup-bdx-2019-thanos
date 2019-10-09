@@ -281,7 +281,7 @@ kubectl --context=zwindlerk8s apply -f ingress-traefik.yaml
 
 * [Pour gérer les certifs Let's Encrypt](https://docs.traefik.io/v2.0/user-guides/crd-acme/)
 
-## Déployer Thanos (sidecar de Prometheus Kubernetes)
+## Déployer le Thanos sidecar pour Prometheus dans Kubernetes
 
 * [https://github.com/thanos-io/thanos/blob/master/tutorials/kubernetes-helm/README.md]
 
@@ -289,6 +289,82 @@ Pour déployer Thanos dans un Kubernetes qui a déjà Prometheus, on va d'abord 
 
 ```bash
 helm upgrade --kube-context=zwindlerk8s --namespace monitoring prometheus stable/prometheus -f prom-values-with-thanos-retention.yaml
+```
+
+## Déployer une storage Gateway par cluster Kubernetes
+
+configurer les variables suivantes pour un cluster donné
+
+```bash
+K8SCLUSTER=zwindlerk8s
+AZURERG=${K8SCLUSTER}_rg
+AZURESTORAGEACCOUNT=thanos${K8SCLUSTER}
+AZURESUBSCRIPTION='Visual Studio Professional'
+```
+
+Créer un compte de stockage chez un cloud provider (ou autre solution compatible avec thanos pour le stockage à long terme)
+
+```bash
+az storage account create -n ${AZURESTORAGEACCOUNT} -g ${AZURERG} --sku Standard_LRS --subscription "${AZURESUBSCRIPTION}"
+
+AZURESTORAGEACCOUNTKEY=`az storage account keys list --account-name "${AZURESTORAGEACCOUNT}" -g ${AZURERG} --output tsv  --subscription "${AZURESUBSCRIPTION}" | grep key1 | cut -f3`
+
+cat > cm-thanos-store-${K8SCLUSTER}.yaml << EOF
+apiVersion: v1
+data:
+  azure-storage.yml: |
+    config:
+      container: ${K8SCLUSTER}
+      storage_account: ${AZURESTORAGEACCOUNT}
+      storage_account_key: ${AZURESTORAGEACCOUNTKEY}
+    type: AZURE
+kind: ConfigMap
+metadata:
+  labels:
+    app: prometheus-thanos
+    cluster: ${K8SCLUSTER}
+  name: thanos-storage-${K8SCLUSTER}
+  namespace: monitoring
+EOF
+
+kubectl --context=zwindlerk8s apply -f cm-thanos-store-${K8SCLUSTER}.yaml
+```
+
+Créer un service pour le Thanos Store
+
+```bash
+cat > svc-thanos-store-${K8SCLUSTER}.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: thanos-store-${K8SCLUSTER}
+  namespace: monitoring
+spec:
+  ports:
+  - name: grpc
+    port: 10901
+    protocol: TCP
+    targetPort: grpc
+  selector:
+    app: thanos-store
+    cluster: ${K8SCLUSTER}
+  sessionAffinity: None
+  type: ClusterIP
+EOF
+
+kubectl --context=zwindlerk8s apply -f svc-thanos-store-${K8SCLUSTER}.yaml
+```
+
+Déployer le Thanos Store
+
+```bash
+kubectl --context=zwindlerk8s apply -f deploy-thanos-store-${K8SCLUSTER}.yaml
+```
+
+Déployer le Thanos Query
+
+```bash
+kubectl --context=zwindlerk8s apply -f deploy-thanos-query.yaml
 ```
 
 ## Bibliographie

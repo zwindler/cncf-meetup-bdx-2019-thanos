@@ -1,0 +1,43 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: thanos-query
+  name: thanos-query
+  namespace: monitoring
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: thanos-query
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "10902"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        app: thanos-query
+    spec:
+      containers:
+      - args:
+        - query
+        - --log.level=info
+        - --http-address=0.0.0.0:10902
+        - --store=thanos-store-zwindlerk8s.monitoring.svc.cluster.local:10901
+        - --query.replica-label=replica
+        - --query.auto-downsampling
+        image: quay.io/thanos/thanos:v0.7.0
+        imagePullPolicy: IfNotPresent
+        name: thanos-query
+        ports:
+        - containerPort: 10902
+          name: http
+          protocol: TCP
+        - containerPort: 10901
+          name: grpc
+          protocol: TCP
+        - containerPort: 10900
+          name: cluster
+          protocol: TCP
