@@ -1,0 +1,18 @@
+ssl:
+   enabled: true
+kubernetes:
+  ingressClass: "traefik"
+ssl.generateTLS: true
+acme:
+  enabled: true
+  email: zwindl3r@gmail.com
+  onHostRule: true
+  staging: true
+  logging: false
+  # Configure a Let's Encrypt certificate to be managed by default.
+  # This is the only way to request wildcard certificates (works only with dns challenge).
+  domains:
+    enabled: false
+  challengeType: http-01
+rbac:
+  enabled: true

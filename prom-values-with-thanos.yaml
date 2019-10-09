@@ -1,0 +1,39 @@
+rbac:
+  create: true
+
+## Define serviceAccount names for components. Defaults to component's fully qualified name.
+##
+serviceAccounts:
+  alertmanager:
+    create: true
+    name:
+  kubeStateMetrics:
+    create: true
+    name:
+  nodeExporter:
+    create: true
+    name:
+  pushgateway:
+    create: true
+    name:
+  server:
+    create: true
+    name:
+    extraArgs:
+    - --storage.tsdb.retention=12h
+    - --storage.tsdb.max-block-duration=2h
+
+
+## Thanos
+##
+thanosSidecar:
+  image:
+    repository: quay.io/thanos/thanos
+    tag: v0.7.0
+          
+  enabled: true
+  peersService:
+    enabled: false
+  extraArgs:
+    objstore.config-file: /etc/config/azure-storage.yml
+  logLevel: info

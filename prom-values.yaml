@@ -1,0 +1,24 @@
+rbac:
+  create: true
+
+## Define serviceAccount names for components. Defaults to component's fully qualified name.
+##
+serviceAccounts:
+  alertmanager:
+    create: true
+    name:
+  kubeStateMetrics:
+    create: true
+    name:
+  nodeExporter:
+    create: true
+    name:
+  pushgateway:
+    create: true
+    name:
+  server:
+    create: true
+    name:
+    extraArgs:
+    - --storage.tsdb.retention=15d
+    - --storage.tsdb.max-block-duration=2h
