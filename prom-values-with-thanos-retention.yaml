@@ -20,7 +20,7 @@ serviceAccounts:
     create: true
     name:
     extraArgs:
-    - --storage.tsdb.retention=15d
+    - --storage.tsdb.retention=12h
     - --storage.tsdb.max-block-duration=2h
 
 
