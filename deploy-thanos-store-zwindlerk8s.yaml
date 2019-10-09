@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: thanos-store
+    cluster: zwindlerk8s
+  name: thanos-store-zwindlerk8s
+  namespace: monitoring
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: thanos-store
+      cluster: zwindlerk8s
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "10902"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        app: thanos-store
+        cluster: zwindlerk8s
+    spec:
+      containers:
+      - args:
+        - store
+        - --log.level=info
+        - --http-address=0.0.0.0:10902
+        - --grpc-address=0.0.0.0:10901
+        - --objstore.config-file=/etc/config/azure-storage.yml
+        - --index-cache-size=50GB
+        - --chunk-pool-size=50GB
+        - --data-dir=/data
+        image: quay.io/thanos/thanos:v0.7.0
+        imagePullPolicy: Always
+        name: thanos-store
+        ports:
+        - containerPort: 10902
+          name: http
+          protocol: TCP
+        - containerPort: 10901
+          name: grpc
+          protocol: TCP
+        - containerPort: 10900
+          name: cluster
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+        - mountPath: /data
+          name: mnt
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - rm -rf /data/*
+        image: busybox
+        imagePullPolicy: Always
+        name: init-rm
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: mnt
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: thanos-storage-zwindlerk8s
+        name: config-volume
+      - hostPath:
+          path: /mnt/thanos-storage-zwindlerk8s/data
+          type: DirectoryOrCreate
+        name: mnt
