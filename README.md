@@ -166,7 +166,7 @@ kubectl --context=zwindlerk8s create ns monitoring
 namespace/monitoring created
 ```
 
-Déployer Tiller pour utiliser Helm (créer un compte de service, lui donenr les droits sur le namespace monitoring).
+Déployer Tiller pour utiliser Helm (créer un compte de service, lui donner les droits sur le namespace monitoring).
 
 ```bash
 kubectl --context=zwindlerk8s --namespace=kube-system create sa tiller
@@ -276,7 +276,7 @@ rbac:
   enabled: true
 EOF
 
-kubectl --context=zwindlerk8s apply -f ingress-traefik.yaml
+kubectl --context=zwindlerk8s apply -f ingress-traefik-prometheus.yaml
 ```
 
 * [Pour gérer les certifs Let's Encrypt](https://docs.traefik.io/v2.0/user-guides/crd-acme/)
@@ -365,6 +365,8 @@ Déployer le Thanos Query
 
 ```bash
 kubectl --context=zwindlerk8s apply -f deploy-thanos-query.yaml
+kubectl --context=zwindlerk8s apply -f svc-thanos-query.yaml
+kubectl --context=zwindlerk8s apply -f ingress-traefik-thanos-query.yaml
 ```
 
 ## Bibliographie

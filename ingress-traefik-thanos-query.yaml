@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: thanos-query
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: thanos-aks.zwindler.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: thanos-query
+          servicePort: 10902
