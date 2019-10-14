@@ -21,16 +21,9 @@ spec:
         app: thanos-query
     spec:
       containers:
-      - args:
-        - query
-        - --log.level=info
-        - --http-address=0.0.0.0:10902
-        - --store=thanos-store-zwindlerk8s.monitoring.svc.cluster.local:10901
-        - --query.replica-label=replica
-        - --query.auto-downsampling
+      - name: thanos-query
         image: quay.io/thanos/thanos:v0.7.0
         imagePullPolicy: IfNotPresent
-        name: thanos-query
         ports:
         - containerPort: 10902
           name: http
@@ -41,3 +34,13 @@ spec:
         - containerPort: 10900
           name: cluster
           protocol: TCP
+        args:
+        - query
+        - --log.level=info
+        - --http-address=0.0.0.0:10902
+        - --query.replica-label=replica
+        - --query.auto-downsampling
+        - --store=prom-thanos-sidecar-aks1-eu.monitoring.svc.cluster.local:10901
+        - --store=thanos-store-aks1-eu.monitoring.svc.cluster.local:10901
+        - --store=prom-thanos-sidecar-aks2-us.monitoring.svc.cluster.local:10901
+        - --store=thanos-store-aks2-us.monitoring.svc.cluster.local:10901

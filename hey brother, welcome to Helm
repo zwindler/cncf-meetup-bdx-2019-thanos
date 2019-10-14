@@ -1,0 +1,48 @@
+zwindler$ helm delete prometheus
+release "prometheus" deleted
+
+zwindler$ helm upgrade prometheus stable/prometheus
+Error: UPGRADE FAILED: "prometheus" has no deployed releases
+
+zwindler$ helm delete prometheus
+Error: the release named "prometheus" is already deleted
+
+zwindler$ helm upgrade prometheus stable/prometheus
+Error: UPGRADE FAILED: "prometheus" has no deployed releases
+
+zwindler$ helm install prometheus stable/prometheus
+Error: This command needs 1 argument: chart name
+
+zwindler$ helm install --name prometheus stable/prometheus
+Error: a release named prometheus already exists.
+Run: helm ls --all prometheus; to check the status of the release
+Or run: helm del --purge prometheus; to delete it
+
+zwindler$ helm delete prometheus --purge
+release "prometheus" deleted
+
+zwindler$ helm install --name prometheus stable/prometheus
+Error: release prometheus failed: [...]
+
+zwindler$ helm install --name prometheus stable/prometheus
+Error: a release named prometheus already exists.
+Run: helm ls --all prometheus; to check the status of the release
+Or run: helm del --purge prometheus; to delete it
+
+zwindler$ helm delete prometheus --purge
+release "prometheus" deleted
+
+zwindler$ helm install --name prometheus stable/prometheus -f prom-values-with-thanos.yaml
+NAME:   prometheus
+LAST DEPLOYED: Thu Oct 10 15:12:39 2019
+NAMESPACE: monitoring
+STATUS: DEPLOYED
+
+zwindler$ helm install --name prometheus stable/prometheus -f prom-values-with-thanos.yaml
+Error: a release named prometheus already exists.
+Run: helm ls --all prometheus; to check the status of the release
+Or run: helm del --purge prometheus; to delete it
+
+FFFFFFFFFFFFFFFFFFFFUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+
+

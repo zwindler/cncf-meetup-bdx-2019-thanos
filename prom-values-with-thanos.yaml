@@ -16,7 +16,7 @@ serviceAccounts:
 server:
   create: true
   extraArgs:
-    storage.tsdb.retention: 15d
+    storage.tsdb.retention: 12h
     storage.tsdb.max-block-duration: 2h
   sidecarContainers:
   - name: thanos-sidecar
@@ -42,7 +42,7 @@ server:
       mountPath: /etc/prometheus-config
       readOnly: false
     - name: thanos-config-volume
-      mountPath: /etc/thanos-config    
+      mountPath: /etc/thanos-config
   global:
     scrape_interval: 5s
     scrape_timeout: 4s
