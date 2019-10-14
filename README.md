@@ -115,6 +115,14 @@ for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} s
 * [https://github.com/containous/traefik]
 * [https://supergiant.io/blog/using-traefik-as-ingress-controller-for-your-kubernetes-cluster/]
 
+Récupérer l'IP d'entrée pour créer des entrées DNS correspondantes
+
+```bash
+for K8SCLUSTER in ${CLUSTERLIST}; do echo "$K8SCLUSTER `kubectl describe svc traefik-ingress-controller --context=$K8SCLUSTER --namespace kube-system | grep Ingress | awk '{print $3}'`"; done
+aks1-eu 52.137.9.241
+aks2-us 104.41.141.41
+```
+
 ### Déployer Prometheus
 
 * [https://github.com/helm/charts/tree/master/stable/prometheus]
@@ -122,7 +130,66 @@ for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} s
 Déployer Prometheus via helm
 
 ```bash
-for K8SCLUSTER in ${CLUSTERLIST}; do  helm install --kube-context=${K8SCLUSTER} --namespace monitoring --name prometheus  stable/prometheus -f prom-values-with-thanos.yaml; done
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > prom-values-with-thanos-${K8SCLUSTER}.yaml << EOF
+rbac:
+  create: true
+serviceAccounts:
+  alertmanager:
+    create: true
+  kubeStateMetrics:
+    create: true
+  nodeExporter:
+    create: true
+  pushgateway:
+    create: true
+server:
+  create: true
+  extraArgs:
+    storage.tsdb.retention: 12h
+    storage.tsdb.max-block-duration: 2h
+  sidecarContainers:
+  - name: thanos-sidecar
+    image: quay.io/thanos/thanos:v0.7.0
+    args:
+    - "sidecar"
+    - "--log.level=debug"
+    - "--tsdb.path=/data/"
+    - "--prometheus.url=http://127.0.0.1:9090"
+    - "--objstore.config-file=/etc/thanos-config/azure-storage.yml"
+    ports:
+    - name: sidecar-http
+      containerPort: 10902
+    - name: grpc
+      containerPort: 10901
+    - name: cluster
+      containerPort: 10900
+    volumeMounts:
+    - name: storage-volume
+      mountPath: /data
+    - name: config-volume
+      mountPath: /etc/prometheus-config
+      readOnly: false
+    - name: thanos-config-volume
+      mountPath: /etc/thanos-config
+  global:
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    external_labels:
+      prometheus_group: ${K8SCLUSTER}
+      prometheus_replica: '\$(HOSTNAME)'
+    evaluation_interval: 5s
+  extraVolumes:
+  - configMap:
+      defaultMode: 420
+      name: thanos-storage-${K8SCLUSTER}
+    name: thanos-config-volume
+  extraVolumeMounts:
+  - name: thanos-config-volume
+    mountPath: /etc/thanos-config
+EOF
+done
+
+for K8SCLUSTER in ${CLUSTERLIST}; do  helm upgrade --kube-context=${K8SCLUSTER} --namespace monitoring prometheus  stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}.yaml ; done
 ```
 
 Créer un service pour accéder à Thanos
@@ -339,23 +406,21 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: thanos-storage-zwindlerk8s
+          name: thanos-storage-${K8SCLUSTER}
         name: config-volume
       - hostPath:
           path: /mnt/thanos-storage-${K8SCLUSTER}/data
           type: DirectoryOrCreate
         name: mnt
 EOF
-
-kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-store-${K8SCLUSTER}.yaml
 done
+
+for K8SCLUSTER in ${CLUSTERLIST}; do kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-store-${K8SCLUSTER}.yaml; done
 ```
 
 ### Thanos Query
 
 Déployer Thanos Query en eregistrant le chemin vers tous les Thanos (sidecar) pour les métriques instantannées et les Thanos Store pour les métriques long terme.
-
-Déployer le Thanos Query
 
 ```bash
 cat > deploy-thanos-query.yaml << EOF
@@ -409,8 +474,29 @@ for K8SCLUSTER in ${CLUSTERLIST}; do cat >> deploy-thanos-query.yaml << EOF
 EOF
 done
 
-kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-query.yaml
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > ingress-traefik-thanos-query-${K8SCLUSTER}.yaml << EOF
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: thanos-query
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: thanos-${K8SCLUSTER}.zwindler.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: thanos-query
+          servicePort: 10902
+EOF
+done
 
+for K8SCLUSTER in ${CLUSTERLIST}
+do kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-query.yaml
 kubectl --context=${K8SCLUSTER} apply -f svc-thanos-query.yaml
-kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-thanos-query.yaml
+kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-thanos-query-${K8SCLUSTER}.yaml
+done
 ```
