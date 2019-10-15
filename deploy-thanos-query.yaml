@@ -41,6 +41,8 @@ spec:
         - --query.replica-label=replica
         - --query.auto-downsampling
         - --store=prom-thanos-sidecar-aks1-eu.zwindler.fr:30901
+        - --store=prom-thanos-sidecar-aks1-eu-replica.zwindler.fr:30911
         - --store=thanos-store-aks1-eu.zwindler.fr:31901
         - --store=prom-thanos-sidecar-aks2-us.zwindler.fr:30901
+        - --store=prom-thanos-sidecar-aks2-us-replica.zwindler.fr:30911
         - --store=thanos-store-aks2-us.zwindler.fr:31901

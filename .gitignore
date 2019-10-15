@@ -2,4 +2,5 @@ deploy-thanos-query*
 cm-thanos-store-*.yaml
 *zwindlerk8s*
 *aks*
+grafana-values.yaml
 donottrack/

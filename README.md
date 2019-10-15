@@ -8,9 +8,7 @@ Arrive alors Thanos (rien à voir avec le bonhomme violet avec un gant doré)
 
 Celui ci va nous permettre de stocker nos métriques infiniment, tout en les rassemblant au sein d'une même source de données et en améliorant la performance de nos requêtes les plus coûteuses.
 
-## Déployer Prometheus dans nos clusters Kubernetes
-
-### Prérequis
+## Prérequis
 
 Avoir 2 clusters Kubernetes
 
@@ -123,11 +121,12 @@ aks1-eu 52.137.9.241
 aks2-us 104.41.141.41
 ```
 
-### Déployer Prometheus
+## Déployer Prometheus dans nos clusters Kubernetes
 
 * [https://github.com/helm/charts/tree/master/stable/prometheus]
+* [https://github.com/thanos-io/thanos/blob/master/tutorials/kubernetes-helm/README.md]
 
-Déployer Prometheus via helm
+Déployer Prometheus via helm avec thanos en sidecar
 
 ```bash
 for K8SCLUSTER in ${CLUSTERLIST}; do cat > prom-values-with-thanos-${K8SCLUSTER}.yaml << EOF
@@ -144,8 +143,9 @@ serviceAccounts:
     create: true
 server:
   create: true
+  retention: 12h
   extraArgs:
-    storage.tsdb.retention: 12h
+    storage.tsdb.min-block-duration: 2h
     storage.tsdb.max-block-duration: 2h
   sidecarContainers:
   - name: thanos-sidecar
@@ -175,8 +175,8 @@ server:
     scrape_interval: 5s
     scrape_timeout: 4s
     external_labels:
-      prometheus_group: ${K8SCLUSTER}
-      prometheus_replica: '\$(HOSTNAME)'
+      cluster: ${K8SCLUSTER}
+      replica: 1
     evaluation_interval: 5s
   extraVolumes:
   - configMap:
@@ -189,10 +189,13 @@ server:
 EOF
 done
 
-for K8SCLUSTER in ${CLUSTERLIST}; do  helm upgrade --kube-context=${K8SCLUSTER} --namespace monitoring prometheus  stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}.yaml ; done
+for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} --namespace monitoring --name prometheus stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}.yaml ; done
+
+#ou, si il est déjà déployé
+for K8SCLUSTER in ${CLUSTERLIST}; do helm upgrade --kube-context=${K8SCLUSTER} --namespace monitoring prometheus stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}.yaml ; done
 ```
 
-Créer un service pour accéder à Thanos
+Créer un service pour accéder au sidecar Thanos
 
 ```bash
 for K8SCLUSTER in ${CLUSTERLIST}; do cat > svc-prom-thanos-sidecar-${K8SCLUSTER}.yaml << EOF
@@ -244,16 +247,175 @@ kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-prometheus-${K8SCLUSTER
 done
 ```
 
+TODO
+
 * [Pour gérer les certifs Let's Encrypt](https://docs.traefik.io/v2.0/user-guides/crd-acme/)
 
-## Déployer le Thanos sidecar pour Prometheus dans Kubernetes
+## Créer un nouveau replica de Prometheus sur nos clusters Kubernetes
 
-* [https://github.com/thanos-io/thanos/blob/master/tutorials/kubernetes-helm/README.md]
-
-Pour déployer Thanos dans un Kubernetes qui a déjà Prometheus, on va d'abord ajouter Thanos en tant que sidecar du Prometheus server et modifier les valeurs de rétention de Prometheus pour économiser de l'espace disque local.
+Déployer Prometheus via helm avec thanos en sidecar
 
 ```bash
-for K8SCLUSTER in ${CLUSTERLIST}; do helm upgrade --kube-context=${K8SCLUSTER} --namespace monitoring prometheus stable/prometheus -f prom-values-with-thanos.yaml; done
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > prom-values-with-thanos-${K8SCLUSTER}-replica.yaml << EOF
+rbac:
+  create: true
+alertmanager:
+  enabled: false
+alertmanagerFiles:
+  alertmanager.yml: ""
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+pushgateway:
+  enabled: false
+server:
+  create: true
+  retention: 12h
+  extraArgs:
+    storage.tsdb.min-block-duration: 2h
+    storage.tsdb.max-block-duration: 2h
+  sidecarContainers:
+  - name: thanos-sidecar
+    image: quay.io/thanos/thanos:v0.7.0
+    args:
+    - "sidecar"
+    - "--log.level=debug"
+    - "--tsdb.path=/data/"
+    - "--prometheus.url=http://127.0.0.1:9090"
+    - "--objstore.config-file=/etc/thanos-config/azure-storage.yml"
+    ports:
+    - name: sidecar-http
+      containerPort: 10902
+    - name: grpc
+      containerPort: 10901
+    - name: cluster
+      containerPort: 10900
+    volumeMounts:
+    - name: storage-volume
+      mountPath: /data
+    - name: config-volume
+      mountPath: /etc/prometheus-config
+      readOnly: false
+    - name: thanos-config-volume
+      mountPath: /etc/thanos-config
+  global:
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    external_labels:
+      cluster: ${K8SCLUSTER}
+      replica: 2
+    evaluation_interval: 5s
+  extraVolumes:
+  - configMap:
+      defaultMode: 420
+      name: thanos-storage-${K8SCLUSTER}
+    name: thanos-config-volume
+  extraVolumeMounts:
+  - name: thanos-config-volume
+    mountPath: /etc/thanos-config
+EOF
+done
+
+for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} --namespace monitoring --name prometheus-replica stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}-replica.yaml; done
+
+#ou, si il est déjà déployé
+helm upgrade --kube-context=${K8SCLUSTER} --namespace monitoring prometheus-replica stable/prometheus -f prom-values-with-thanos-${K8SCLUSTER}-replica.yaml
+```
+
+Créer un service pour accéder au sidecar Thanos
+
+```bash
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > svc-prom-thanos-sidecar-${K8SCLUSTER}-replica.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: prom-thanos-sidecar-${K8SCLUSTER}-replica
+  namespace: monitoring
+spec:
+  ports:
+  - name: grpc
+    port: 10901
+    nodePort: 30911
+    protocol: TCP
+    targetPort: grpc
+  selector:
+    app: prometheus
+    component: server
+    release: prometheus-replica
+  sessionAffinity: None
+  type: NodePort
+EOF
+kubectl --context=${K8SCLUSTER} apply -f svc-prom-thanos-sidecar-${K8SCLUSTER}-replica.yaml
+done
+```
+
+Créer un Ingress pour accéder à prometheus
+
+```bash
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > ingress-traefik-prometheus-${K8SCLUSTER}-replica.yaml << EOF
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: prometheus-replica
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: prometheus-${K8SCLUSTER}-replica.zwindler.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: prometheus-replica-server
+          servicePort: 80
+EOF
+kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-prometheus-${K8SCLUSTER}-replica.yaml
+done
+```
+
+## Déployer Grafana
+
+On va utiliser une nouvelle fois Helm pour déployer Grafana. Crer un fichier values dans lequel on modifiera le mot de passe de l'admin.
+
+```bash
+cat > grafana-values.yaml << EOF
+adminUser: admin
+adminPassword: myawesomepassword
+EOF
+```
+
+```bash
+for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} --namespace monitoring --name grafana stable/grafana -f grafana-values.yaml; done
+
+##ou si on le met à jour
+for K8SCLUSTER in ${CLUSTERLIST}; do helm upgrade  --kube-context=${K8SCLUSTER} --namespace monitoring grafana stable/grafana -f grafana-values.yaml; done
+```
+
+Créer un Ingress pour accéder à grafana
+
+```bash
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > ingress-traefik-grafana-${K8SCLUSTER}.yaml << EOF
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: grafana-${K8SCLUSTER}.zwindler.fr
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: grafana
+          servicePort: 80
+EOF
+kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-grafana-${K8SCLUSTER}.yaml
+done
 ```
 
 ## Déployer une storage Gateway par cluster Kubernetes
@@ -327,9 +489,7 @@ done
 
 ```
 
-### Thanos Store
-
-Déployer le Thanos Store sur chaque cluster pour gérer le smétriques à long terme
+Déployer le Thanos Store sur chaque cluster pour gérer les métriques à long terme
 
 ```bash
 for K8SCLUSTER in ${CLUSTERLIST}; do cat > deploy-thanos-store-${K8SCLUSTER}.yaml << EOF
@@ -473,6 +633,7 @@ EOF
 
 for K8SCLUSTER in ${CLUSTERLIST}; do cat >> deploy-thanos-query.yaml << EOF
         - --store=prom-thanos-sidecar-${K8SCLUSTER}.zwindler.fr:30901
+        - --store=prom-thanos-sidecar-${K8SCLUSTER}-replica.zwindler.fr:30911
         - --store=thanos-store-${K8SCLUSTER}.zwindler.fr:31901
 EOF
 done
