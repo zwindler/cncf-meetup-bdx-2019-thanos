@@ -1,4 +1,5 @@
+deploy-thanos-query*
 cm-thanos-store-*.yaml
 *zwindlerk8s*
 *aks*
-donottrack
+donottrack/
