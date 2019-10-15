@@ -40,7 +40,7 @@ spec:
         - --http-address=0.0.0.0:10902
         - --query.replica-label=replica
         - --query.auto-downsampling
-        - --store=prom-thanos-sidecar-aks1-eu.monitoring.svc.cluster.local:10901
-        - --store=thanos-store-aks1-eu.monitoring.svc.cluster.local:10901
-        - --store=prom-thanos-sidecar-aks2-us.monitoring.svc.cluster.local:10901
-        - --store=thanos-store-aks2-us.monitoring.svc.cluster.local:10901
+        - --store=prom-thanos-sidecar-aks1-eu.zwindler.fr:30901
+        - --store=thanos-store-aks1-eu.zwindler.fr:31901
+        - --store=prom-thanos-sidecar-aks2-us.zwindler.fr:30901
+        - --store=thanos-store-aks2-us.zwindler.fr:31901

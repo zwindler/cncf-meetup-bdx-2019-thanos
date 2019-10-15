@@ -205,6 +205,7 @@ spec:
   ports:
   - name: grpc
     port: 10901
+    nodePort: 30901
     protocol: TCP
     targetPort: grpc
   selector:
@@ -212,7 +213,7 @@ spec:
     component: server
     release: prometheus
   sessionAffinity: None
-  type: ClusterIP
+  type: NodePort
 EOF
 kubectl --context=${K8SCLUSTER} apply -f svc-prom-thanos-sidecar-${K8SCLUSTER}.yaml
 done
@@ -311,17 +312,19 @@ spec:
   ports:
   - name: grpc
     port: 10901
+    nodePort: 31901
     protocol: TCP
     targetPort: grpc
   selector:
     app: thanos-store
     cluster: ${K8SCLUSTER}
   sessionAffinity: None
-  type: ClusterIP
+  type: NodePort
 EOF
 
 kubectl --context=${K8SCLUSTER} apply -f svc-thanos-store-${K8SCLUSTER}.yaml
 done
+
 ```
 
 ### Thanos Store
@@ -469,8 +472,8 @@ spec:
 EOF
 
 for K8SCLUSTER in ${CLUSTERLIST}; do cat >> deploy-thanos-query.yaml << EOF
-        - --store=prom-thanos-sidecar-${K8SCLUSTER}.monitoring.svc.cluster.local:10901
-        - --store=thanos-store-${K8SCLUSTER}.monitoring.svc.cluster.local:10901
+        - --store=prom-thanos-sidecar-${K8SCLUSTER}.zwindler.fr:30901
+        - --store=thanos-store-${K8SCLUSTER}.zwindler.fr:31901
 EOF
 done
 
