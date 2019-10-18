@@ -29,9 +29,9 @@ Bref rappel de Prometheus, ce que ça fait, à qui ça s'adresse
 
 ## Slide XXX => architecture de Prometheus
 
-## slide => Performance
-
 On a l'architectuer de prometheus qui est telle qu'on se retrouve avec un processus qui scrape, qui compresse, et qui permet de faire des requêtes
+
+## slide => Performance
 
 Heureusement pour nous, Prometheus est très puissant, et est capable de gérer en même temps une énorme quantité de métriques en ingestion et en requêtage.
 
@@ -73,7 +73,6 @@ Normalement, dans votre tête quand j'ai dis ça, il devrait y avoir un panneau 
 
 Oui, par défaut, prometheus est un bon gros SPOF. 
 
-
 ## On va tout doubler
 
 Donc pour pallier à ça c'est pas foufou mais la réponse des Dev de Prometheus c'est de dire, "spa grave, c'est Kube. Mettez en deux, et puis bon ils scrappent les mêmes data tant pis.
@@ -93,8 +92,6 @@ J'ai dis théoriquement, car si pour une raison ou pour un autre (un bug, une re
 Du coup, dans Grafana, comment je fais pour choisir lequel des deux réplicas je consulte ? Et pire, si j'ai mis un loadbalancer devant, en fonction du replica sur lequel je tombe, j'aurai (ou pas) un trou.
 
 Donc on voit bien que c'est pas utilisable en l'état.
-
-
 
 ## Slide XXX => Thanos, un ami qui vous veut du bien
 
