@@ -15,7 +15,7 @@ Avoir 2 clusters Kubernetes
 ```bash
 kubectl config get-contexts
 CURRENT   NAME                CLUSTER             AUTHINFO                                 NAMESPACE
-          aks1-eu             aks1-eu             clusterUser_aks1-eu-rg_aks1-eu           
+          aks1-eu             aks1-eu             clusterUser_aks1-eu-rg_aks1-eu
 *         aks2-us             aks2-us             clusterUser_aks2-us-rg_aks2-us  
 
 for K8SCLUSTER in ${CLUSTERLIST}; do kubectl --context=${K8SCLUSTER} get nodes; done
@@ -82,7 +82,7 @@ for K8SCLUSTER in ${CLUSTERLIST}; do helm init --kube-context=${K8SCLUSTER} --se
 
 ### Déployer un Ingress Controller (Traefik ici)
 
-* [https://github.com/helm/charts/tree/master/stable/traefik]
+* [Chart Helm officiel de Traefik en tant qu'Ingress Controller](https://github.com/helm/charts/tree/master/stable/traefik)
 
 ```bash
 cat > traefik-values.yaml << EOF
@@ -110,8 +110,8 @@ Déployer Traefik
 for K8SCLUSTER in ${CLUSTERLIST}; do helm install --kube-context=${K8SCLUSTER} stable/traefik --name traefik-ingress-controller --namespace kube-system -f traefik-values.yaml; done
 ```
 
-* [https://github.com/containous/traefik]
-* [https://supergiant.io/blog/using-traefik-as-ingress-controller-for-your-kubernetes-cluster/]
+* [Github de traefik](https://github.com/containous/traefik)
+* [Tutoriel configuration de Traefik comme Ingress Controller par Supergiant](https://supergiant.io/blog/using-traefik-as-ingress-controller-for-your-kubernetes-cluster/)
 
 Récupérer l'IP d'entrée pour créer des entrées DNS correspondantes
 
@@ -123,8 +123,8 @@ aks2-us 104.41.141.41
 
 ## Déployer Prometheus dans nos clusters Kubernetes
 
-* [https://github.com/helm/charts/tree/master/stable/prometheus]
-* [https://github.com/thanos-io/thanos/blob/master/tutorials/kubernetes-helm/README.md]
+* [Helm chart officiel de Prometheus](https://github.com/helm/charts/tree/master/stable/prometheus)
+* [Tutoriel pour déployer Thanos sidecar en utilisant Helm](https://github.com/thanos-io/thanos/blob/master/tutorials/kubernetes-helm/README.md)
 
 Déployer Prometheus via helm avec thanos en sidecar
 
