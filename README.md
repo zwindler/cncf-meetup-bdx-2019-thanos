@@ -17,18 +17,18 @@ kubectl config get-contexts
 CURRENT   NAME                CLUSTER             AUTHINFO                                 NAMESPACE
           aks1-eu             aks1-eu             clusterUser_aks1-eu-rg_aks1-eu
 *         aks2-us             aks2-us             clusterUser_aks2-us-rg_aks2-us  
-
-for K8SCLUSTER in ${CLUSTERLIST}; do kubectl --context=${K8SCLUSTER} get nodes; done
-NAME                       STATUS   ROLES   AGE   VERSION
-aks-agentpool-28179912-0   Ready    agent   20m   v1.14.6
-NAME                       STATUS   ROLES   AGE     VERSION
-aks-agentpool-41438152-0   Ready    agent   3m33s   v1.14.6
 ```
 
 Renseigner la liste de tous les clusters dans une variable d'environnement
 
 ```bash
 CLUSTERLIST="aks1-eu aks2-us"
+
+for K8SCLUSTER in ${CLUSTERLIST}; do kubectl --context=${K8SCLUSTER} get nodes; done
+NAME                       STATUS   ROLES   AGE   VERSION
+aks-agentpool-28179912-0   Ready    agent   20m   v1.14.6
+NAME                       STATUS   ROLES   AGE     VERSION
+aks-agentpool-41438152-0   Ready    agent   3m33s   v1.14.6
 ```
 
 Créer un namespace à part pour tous les tools de monitoring
@@ -583,7 +583,7 @@ for K8SCLUSTER in ${CLUSTERLIST}; do kubectl --context=${K8SCLUSTER} apply -f de
 
 ### Thanos Query
 
-Déployer Thanos Query en eregistrant le chemin vers tous les Thanos (sidecar) pour les métriques instantannées et les Thanos Store pour les métriques long terme.
+Déployer Thanos Query en enregistrant le chemin vers tous les Thanos (sidecar) pour les métriques instantannées et les Thanos Store pour les métriques long terme.
 
 ```bash
 cat > deploy-thanos-query.yaml << EOF
@@ -662,5 +662,72 @@ for K8SCLUSTER in ${CLUSTERLIST}
 do kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-query.yaml
 kubectl --context=${K8SCLUSTER} apply -f svc-thanos-query.yaml
 kubectl --context=${K8SCLUSTER} apply -f ingress-traefik-thanos-query-${K8SCLUSTER}.yaml
+done
+```
+
+### Thanos Compact
+
+Déployer Thanos Compact sur tous les cluster pour la redondance (un seul suffit)
+
+```bash
+
+for K8SCLUSTER in ${CLUSTERLIST}; do cat > deploy-thanos-compact-${K8SCLUSTER}.yaml << EOF
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: thanos-compact
+  name: thanos-compact
+  namespace: monitoring
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: thanos-compact
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "10902"
+        prometheus.io/scrape: "true"
+      creationTimestamp: null
+      labels:
+        app: thanos-compact
+    spec:
+      containers:
+      - name: thanos-compact
+        image: quay.io/thanos/thanos:v0.7.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 10902
+          name: http
+          protocol: TCP
+        - containerPort: 10901
+          name: grpc
+          protocol: TCP
+        - containerPort: 10900
+          name: cluster
+          protocol: TCP
+        args:
+        - store
+        - --objstore.config-file=/etc/config/azure-storage.yml
+        - --data-dir=/data
+        volumeMounts:
+        - mountPath: /etc/config
+          name: config-volume
+        - mountPath: /data
+          name: mnt
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: thanos-storage-${K8SCLUSTER}
+        name: config-volume
+      - hostPath:
+          path: /mnt/thanos-storage-${K8SCLUSTER}/data
+          type: DirectoryOrCreate
+        name: mnt
+EOF
+
+kubectl --context=${K8SCLUSTER} apply -f deploy-thanos-compact-${K8SCLUSTER}.yaml
 done
 ```
