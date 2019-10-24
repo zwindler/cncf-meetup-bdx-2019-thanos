@@ -7,3 +7,5 @@ avg(container_memory_usage_bytes) by (cluster,replica)
 http://prometheus-aks2-us.zwindler.fr/graph?g0.range_input=1h&g0.expr=avg(container_memory_usage_bytes)%20by%20(cluster%2Creplica)&g0.tab=0
 
 http://grafana-aks1-eu.zwindler.fr/?orgId=1
+
+http://thanos-aks1-eu.zwindler.fr/graph
